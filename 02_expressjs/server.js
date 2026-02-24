@@ -7,6 +7,12 @@ const router = express.Router();
 
 app.use(express.json());
 
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${req.method} ${req.url}`);
+  next();
+});
+
 let cars = [
   {
     id: 1,
@@ -63,6 +69,15 @@ router.post("/", (req, res) => {
   cars.push(newCar);
 
   res.status(201).json(newCar);
+});
+
+router.delete("/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const index = cars.findIndex((car) => car.id === id);
+
+  if (index === -1) return res.status(404).send("Car not found");
+  const deleted = cars.splice(index, 1)[0];
+  res.json({ message: "Car deleted", car: deleted });
 });
 
 router.put("/:id", (req, res) => {
