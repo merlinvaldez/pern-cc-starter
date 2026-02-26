@@ -1,4 +1,7 @@
 import express from "express";
+import { db } from "./db.js";
+import { cars } from "./schema.js";
+import { eq } from "drizzle-orm";
 
 const app = express();
 const PORT = 3000;
@@ -6,12 +9,6 @@ const PORT = 3000;
 const router = express.Router();
 
 app.use(express.json());
-
-let cars = [
-  { id: 1, make: "Toyota", model: "Camry", year: 2022, price: 28000 },
-  { id: 2, make: "Tesla", model: "Model S", year: 2023, price: 25000 },
-  { id: 3, make: "Ford", model: "F-150", year: 2021, price: 35000 },
-];
 
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
@@ -23,11 +20,12 @@ app.get("/", (req, res) => {
   res.send("Hello from Car API!");
 });
 
-router.get("/cars", (req, res) => {
-  res.json(cars);
+router.get("/cars", async (req, res) => {
+  const allCars = await db.select().from(cars);
+  res.json(allCars);
 });
 
-router.post("/cars", (req, res) => {
+router.post("/cars", async (req, res) => {
   const { make, model, year, price } = req.body;
 
   if (!make || !model || !year || !price) {
@@ -36,39 +34,53 @@ router.post("/cars", (req, res) => {
     });
   }
 
-  const nextId = cars.length + 1;
-
-  const newCar = {
-    id: nextId,
-    make,
-    model,
-    year: parseInt(year),
-    price: parseFloat(price),
-  };
-
-  cars.push(newCar);
+  const [newCar] = await db
+    .insert(cars)
+    .values({ make, model, year, price })
+    .returning();
 
   res.status(201).json(newCar);
 });
 
-router.put("/cars/:id", (req, res) => {
+router.put("/cars/:id", async (req, res) => {
   const carId = parseInt(req.params.id);
-  const carIndex = cars.findIndex((c) => c.id === carId);
-
-  if (carIndex === -1) {
-    return res.status(404).json({ error: "Car not found" });
-  }
-
   const { make, model, year, price } = req.body;
 
-  if (make) cars[carIndex].make = make;
-  if (model) cars[carIndex].model = model;
-  if (year) cars[carIndex].year = parseInt(year);
-  if (price) cars[carIndex].price = parseFloat(price);
+  let updatedCar;
 
-  res.json(cars[carIndex]);
+  if (make) {
+    updatedCar = await db
+      .update(cars)
+      .set({ make: `${make}` })
+      .where(eq(cars.id, carId))
+      .returning();
+  }
+  if (model) {
+    updatedCar = await db
+      .update(cars)
+      .set({ model: `${model}` })
+      .where(eq(cars.id, carId))
+      .returning();
+  }
+  if (year) {
+    updatedCar = await db
+      .update(cars)
+      .set({ year: `${year}` })
+      .where(eq(cars.id, carId))
+      .returning();
+  }
+  if (price) {
+    updatedCar = await db
+      .update(cars)
+      .set({ price: `${price}` })
+      .where(eq(cars.id, carId))
+      .returning();
+  }
+
+  res.json(updatedCar);
 });
 
+//TODO: Update delete route ORM query
 router.delete("/cars/:id", (req, res) => {
   const carId = parseInt(req.params.id);
   const carIndex = cars.findIndex((c) => c.id === carId);
